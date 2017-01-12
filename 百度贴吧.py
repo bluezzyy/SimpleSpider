@@ -1,17 +1,15 @@
 # -*- coding:utf-8 -*-
 
 # 爬取百度贴吧的数据
-# 爬取顺序：见XMind
+# 思路：见XMind
 # Author: Blue
 # Date: 2017/01/12
-
 
 import urllib2
 import re
 import sys
 import datetime
 import os
-
 
 # 处理页面标签类
 class Tool:
@@ -31,31 +29,36 @@ class Tool:
     removeExtraTag = re.compile('<.*?>')
 
     # re.sub()方法： 用一个string代替匹配的模式
-    def replace(self,x):
-        x = re.sub(self.removeImg,"",x)
-        x = re.sub(self.removeAddr,"",x)
-        x = re.sub(self.replaceLineFeed,"\n",x)
-        x = re.sub(self.replaceTR,"\t",x)
-        x = re.sub(self.replaceSpace,"\n  ",x)
-        x = re.sub(self.replaceBR,"\n",x)
-        x = re.sub(self.removeExtraTag,"",x)
+    def replace(self ,x):
+        x = re.sub(self.removeImg , "", x)
+        x = re.sub(self.removeAddr, "", x)
+        x = re.sub(self.replaceLineFeed ,"\n",x)
+        x = re.sub(self.replaceTR ,"\t",x)
+        x = re.sub(self.replaceSpace ,"\n  ",x)
+        x = re.sub(self.replaceBR ,"\n",x)
+        x = re.sub(self.removeExtraTag ,"",x)
         # strip()函数把前后多余内容删除
         return x.strip()
 
 # 爬虫类：
 class BDTB:
     # 初始化数据
-    def __init__(self,baseUrl,seeLZ,floorTag):
+    def __init__(self ,baseUrl,seeLZ,floorTag):
+        # 设置默认编码为utf-8 否则会出现写入错误
         reload(sys)
         sys.setdefaultencoding('utf-8')
+        # baseURL
         self.baseURL = baseUrl
+        # 是否只看楼主
         self.seeLZ = '?see_lz=' + str(seeLZ)
         # 工具类
         self.tool = Tool()
         # 写入文件
         self.file = None
+        # 当前时间
+        self.date = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         # 默认文件名
-        self.default = "百度贴吧"+datetime.datetime.now().strftime("%Y-%M-%D %h:%m:%s")
+        self.default = "百度贴吧"+self.date
         # 存储路径(自行更改)
         self.path = '//SomeCodes//PythonData'
         # 楼层数
@@ -71,7 +74,7 @@ class BDTB:
             response = urllib2.urlopen(request)
             return  response.read().decode(u'utf-8')   # 必须加decode否则报错
         except urllib2.URLError,e:
-            if hasattr(e,"reason"):
+            if hasattr(e , "reason"):
                 print u"连接百度贴吧失败，错误原因",e.reason
                 return None
 
@@ -117,10 +120,12 @@ class BDTB:
 
     # 写入文件
     def writeFile(self,contents):
+        # 在文件开头写入链接和时间
+        self.file.write("该贴子的链接为：http://tieba.baidu.com/p/"+code+"\n"+ "爬取日期："+ self.date + "\n")
         for item in contents:
             if self.floorTag == "1":
                 # 楼层之间的分隔线
-                floorLine = "\n" + str(self.floor) + u"楼--------------------------------------\n"
+                floorLine = "\n" + str(self.floor) + u"楼-----------------------------------------------------\n"
                 self.file.write(floorLine)
             self.file.write(item)
             self.floor += 1
@@ -145,17 +150,16 @@ class BDTB:
                 page = self.getPage(i)
                 contents = self.getContent(page)
                 self.writeFile(contents)
+            print "写入完成"
         except IOError,e:
             print "发生错误"+e.message
         finally:
-            print "写入完成"
             self.closeFile()
 
 print u'请输入贴子代号'
-baseURL = 'http://tieba.baidu.com/p/' + str(raw_input(u'http://tieba.baidu.com/p/'))  # 爬取的链接
-seeLZ = raw_input("是否只获取楼主的发言 1是 0否\n")
-floorTag = raw_input("是否打印楼层 1是 0否\n")
+code = str(raw_input(u'http://tieba.baidu.com/p/'))  # 贴子代号
+baseURL = 'http://tieba.baidu.com/p/'+code  # 爬取的链接
+seeLZ = raw_input("是否只获取楼主的发言 1:是 其他:否\n")
+floorTag = raw_input("是否打印楼层 1:是 其他:否\n")
 bdtb = BDTB(baseURL,seeLZ,floorTag)
 bdtb.start()
-#
-

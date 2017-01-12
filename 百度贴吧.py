@@ -1,13 +1,17 @@
 # -*- coding:utf-8 -*-
 
 # 爬取百度贴吧的数据
-# 爬取顺序：__init__  -> getPage()
-# 爬取顺序： 初始化 ->  获取传入页码的数据(整个页面的数据)
+# 爬取顺序：见XMind
+# Author: Blue
+# Date: 2017/01/12
+
 
 import urllib2
 import re
+import sys
+import datetime
+import os
 
-baseURL = 'http://tieba.baidu.com/p/3138733512'  # 爬取的链接
 
 # 处理页面标签类
 class Tool:
@@ -26,6 +30,7 @@ class Tool:
     # 把其余标签删除
     removeExtraTag = re.compile('<.*?>')
 
+    # re.sub()方法： 用一个string代替匹配的模式
     def replace(self,x):
         x = re.sub(self.removeImg,"",x)
         x = re.sub(self.removeAddr,"",x)
@@ -41,12 +46,18 @@ class Tool:
 class BDTB:
     # 初始化数据
     def __init__(self,baseUrl,seeLZ,floorTag):
+        reload(sys)
+        sys.setdefaultencoding('utf-8')
         self.baseURL = baseUrl
         self.seeLZ = '?see_lz=' + str(seeLZ)
         # 工具类
         self.tool = Tool()
         # 写入文件
         self.file = None
+        # 默认文件名
+        self.default = "百度贴吧"+datetime.datetime.now().strftime("%Y-%M-%D %h:%m:%s")
+        # 存储路径(自行更改)
+        self.path = '//SomeCodes//PythonData'
         # 楼层数
         self.floor = 1
         # 楼层分隔标识
@@ -58,7 +69,6 @@ class BDTB:
             url = self.baseURL + self.seeLZ + '&pn=' + str(pageNum)
             request = urllib2.Request(url)
             response = urllib2.urlopen(request)
-            # print response.read()
             return  response.read().decode(u'utf-8')   # 必须加decode否则报错
         except urllib2.URLError,e:
             if hasattr(e,"reason"):
@@ -66,10 +76,8 @@ class BDTB:
                 return None
 
     # 获取标题
-    def getTitle(self):
-        page = self.getPage(1)
+    def getTitle(self,page):
         pattern = re.compile(ur'<h3 class="core_title_txt.*?">(.*?)</h3>')
-        # pattern1 = re.compile(ur'<h(\d)(\W)+class="core_title_txt.*>(.*)</h\1>')    # 参考
         result = re.search(pattern,page)
         if result:
             print "标题：",result.group(1)   # 输出标题
@@ -79,8 +87,7 @@ class BDTB:
             return None
 
     # 获取当前帖子一共有多少页
-    def getPageNum(self):
-        page = self.getPage(1)
+    def getPageNum(self,page):
         pattern = re.compile(ur'<li class="l_reply_num".*?<span.*?>.*?</span>.*?<span.*?>(.*?)</span>',re.S)
         result = re.search(pattern,page)
         if result:
@@ -94,36 +101,46 @@ class BDTB:
     def getContent(self,page):
         pattern = re.compile('<div id="post_content.*?" class="d_post_content.*?">(.*?)</div>',re.S)
         result = re.findall(pattern,page)
-        floor = 1
+        contents = []
         for item in result:
-            print floor,u'楼-----------------------------------------------------\n'
-            print self.tool.replace(item)
-            print u'\n'
-            floor += 1
+            content = "\n" + self.tool.replace(item) + "\n"
+            contents.append(content.encode('utf-8'))
+        return contents
+
+    # 为文件设置名称
+    def setFileName(self,title):
+        if title is not None:
+            os.chdir(self.path)  # 更换文件存放路径
+            self.file = open(title + u".txt", u"w+")  # w+是先清空再写入，防止爬取数据重复
+        else:
+            self.file = open(self.default +u".txt",u"w+")
 
     # 写入文件
     def writeFile(self,contents):
         for item in contents:
             if self.floorTag == "1":
                 # 楼层之间的分隔线
-                floorLine = u'\n'+ str(self.floor) + u'楼--------------------------------------\n'
+                floorLine = "\n" + str(self.floor) + u"楼--------------------------------------\n"
                 self.file.write(floorLine)
             self.file.write(item)
             self.floor += 1
 
+    # 关闭文件
+    def closeFile(self):
+        self.file.close()
+
     # 开始爬虫
     def start(self):
-        bdtb = BDTB(baseURL, 1)
-        page = bdtb.getPage(1)  # 获取当前页所有内容
-        bdtb.getTitle()
-        bdtb.getPageNum()
-        bdtb.getContent(page)
-        if(page == None):
+        pageIndex = self.getPage(1)
+        pageNum = self.getPageNum(pageIndex)
+        title = bdtb.getTitle(pageIndex)
+        self.setFileName(title)
+        if(pageNum == None):
             print "URL已经失效，请重试"
             return
         try:
-            print "该贴共有" +str(page) + "页"
-            for i in range(1,int(page)+1):
+            print "该贴共有" +str(pageNum) + "页"
+            for i in range(1,int(pageNum)+1):
                 print "正在写入"+ str(i) + "页的数据"
                 page = self.getPage(i)
                 contents = self.getContent(page)
@@ -132,6 +149,13 @@ class BDTB:
             print "发生错误"+e.message
         finally:
             print "写入完成"
+            self.closeFile()
 
-
+print u'请输入贴子代号'
+baseURL = 'http://tieba.baidu.com/p/' + str(raw_input(u'http://tieba.baidu.com/p/'))  # 爬取的链接
+seeLZ = raw_input("是否只获取楼主的发言 1是 0否\n")
+floorTag = raw_input("是否打印楼层 1是 0否\n")
+bdtb = BDTB(baseURL,seeLZ,floorTag)
+bdtb.start()
+#
 

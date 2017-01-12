@@ -37,14 +37,20 @@ class Tool:
         # strip()函数把前后多余内容删除
         return x.strip()
 
-
-
 # 爬虫类：
 class BDTB:
-    def __init__(self,baseUrl,seeLZ):
+    # 初始化数据
+    def __init__(self,baseUrl,seeLZ,floorTag):
         self.baseURL = baseUrl
         self.seeLZ = '?see_lz=' + str(seeLZ)
+        # 工具类
         self.tool = Tool()
+        # 写入文件
+        self.file = None
+        # 楼层数
+        self.floor = 1
+        # 楼层分隔标识
+        self.floorTag = floorTag
 
     # 传入页码，获取该页帖子的代码
     def getPage(self,pageNum):
@@ -88,10 +94,44 @@ class BDTB:
     def getContent(self,page):
         pattern = re.compile('<div id="post_content.*?" class="d_post_content.*?">(.*?)</div>',re.S)
         result = re.findall(pattern,page)
-        print self.tool.replace(result[1])
+        floor = 1
+        for item in result:
+            print floor,u'楼-----------------------------------------------------\n'
+            print self.tool.replace(item)
+            print u'\n'
+            floor += 1
 
-bdtb = BDTB(baseURL,1)
-page = bdtb.getPage(1)  # 获取当前页所有内容
-bdtb.getTitle()
-bdtb.getPageNum()
-bdtb.getContent(page)
+    # 写入文件
+    def writeFile(self,contents):
+        for item in contents:
+            if self.floorTag == "1":
+                # 楼层之间的分隔线
+                floorLine = u'\n'+ str(self.floor) + u'楼--------------------------------------\n'
+                self.file.write(floorLine)
+            self.file.write(item)
+            self.floor += 1
+
+    # 开始爬虫
+    def start(self):
+        bdtb = BDTB(baseURL, 1)
+        page = bdtb.getPage(1)  # 获取当前页所有内容
+        bdtb.getTitle()
+        bdtb.getPageNum()
+        bdtb.getContent(page)
+        if(page == None):
+            print "URL已经失效，请重试"
+            return
+        try:
+            print "该贴共有" +str(page) + "页"
+            for i in range(1,int(page)+1):
+                print "正在写入"+ str(i) + "页的数据"
+                page = self.getPage(i)
+                contents = self.getContent(page)
+                self.writeFile(contents)
+        except IOError,e:
+            print "发生错误"+e.message
+        finally:
+            print "写入完成"
+
+
+
